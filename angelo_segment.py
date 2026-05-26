@@ -35,6 +35,7 @@ _STATE = {
 # needed — the official facebook/sam3 repo is gated).
 _SAM3_HF_REPO = "1038lab/sam3"
 _SAM3_CKPT_NAME = "sam3.pt"
+_EXPECTED_HASH = "9999e2341ceef5e136daa386eecb55cb414446a00ac2b55eb2dfd2f7c3cf8c9e"
 
 
 def _torch_devices():
@@ -64,6 +65,20 @@ def _download_checkpoint(target_path):
         local_dir=target_dir,
         local_dir_use_symlinks=False,
     )
+
+    sha256 = hashlib.sha256()
+    with open(downloaded, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    
+    actual_hash = sha256.hexdigest()
+    if actual_hash != _EXPECTED_HASH:
+        if os.path.exists(downloaded):
+            os.remove(downloaded)
+        raise RuntimeError(
+            f"Model integrity check failed! Expected {_EXPECTED_HASH}, got {actual_hash}."
+        )
+
     if os.path.normpath(downloaded) != os.path.normpath(target_path):
         shutil.move(downloaded, target_path)
     print(f"[Angelo/SAM3] Downloaded to {target_path}")
@@ -325,9 +340,16 @@ if _HAS_SERVER:
         loop = asyncio.get_event_loop()
         try:
             if method == "sam3_text":
-                result = await loop.run_in_executor(
-                    None, detect_text, pil, text, threshold, max_det
-                )
+                try:
+                    result = await loop.run_in_executor(
+                        None, detect_text, pil, text, threshold, max_det
+                    )
+                except RuntimeError as e:
+                    if "CUDA" in str(e) and "allocated" in str(e):
+                        print("[Angelo/SAM3] Async CUDA allocation failed. Falling back to main thread sync.")
+                        result = detect_text(pil, text, threshold, max_det)
+                    else:
+                        raise
             else:
                 return web.json_response({"error": f"unknown method '{method}'"}, status=400)
         except Exception as e:
