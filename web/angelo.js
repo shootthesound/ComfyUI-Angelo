@@ -483,7 +483,16 @@ app.registerExtension({
             if (origGetExtraMenuOptions) origGetExtraMenuOptions.apply(this, arguments);
             const node = this;
             const hasImg = !!node._AngeloImg;
+            const inSampler = String(findWidget(node, "mode")?.value) === "Sampler Mode";
             options.unshift(
+                // Quick actions (#29) — same set as the preview canvas menu.
+                { content: inSampler ? "Angelo: switch to Edit Mode"
+                                     : "Angelo: switch to Sampler Mode",
+                  callback: () => _angeloSetMode(node, inSampler ? "Edit Mode" : "Sampler Mode") },
+                { content: "Angelo: generate new base (fresh seed)",
+                  callback: () => _angeloGenerateNewBase(node) },
+                { content: "Angelo: regenerate same base",
+                  callback: () => _angeloRegenerateSameBase(node) },
                 { content: "Angelo: open image in new tab", disabled: !hasImg,
                   callback: () => _angeloOpenImageInTab(node) },
                 { content: "Angelo: copy image", disabled: !hasImg,
@@ -1344,7 +1353,7 @@ function attachPreviewCanvas(node) {
             setWidget(w, val);   // fires the wrapped mode callback (lock + grey sync)
         }
     );
-    modeSelect.title = "Sampler Mode = generate a fresh base latent from the inputs (acts like a KSampler). Edit Mode = click/drag the preview to refine or inpaint the cached latent. Switching to Edit Mode auto-locks the sampler seed to the value that produced the base.";
+    modeSelect.title = "Sampler Mode = generate a fresh base latent from the inputs (acts like a KSampler). Edit Mode = click/drag the preview to refine or inpaint the cached latent. Switching to Edit Mode auto-locks the sampler seed to the value that produced the base; switching back restores your previous seed control (and pre-rolls a fresh seed if it was randomize, so the next Queue is a new base). Right-click the preview for quick actions: switch mode, generate new base, regenerate same base.";
     modeRow.appendChild(modeSelect);
     node._AngeloModeSelect = modeSelect;
 
@@ -1862,7 +1871,9 @@ function attachPreviewCanvas(node) {
     container.appendChild(canvasWrap);
 
     // --- Zoom / pan (view layer, independent of the refine pipeline) ---
-    //   • Wheel       → zoom toward the cursor (clamped 0.25–8×).
+    //   • Wheel       → zoom toward the cursor (clamped fit–8×; there's
+    //                   no use for an image smaller than the panel, so
+    //                   zooming out stops at fit — #29).
     //   • Middle-drag → pan.
     //   • Double-middle-click, or 'F' (cursor over node) → reset to fit.
     // While zoomed/panned the auto-fit (fitCanvasDisplaySize) is suppressed
@@ -1887,7 +1898,7 @@ function attachPreviewCanvas(node) {
         const cy = (event.clientY - wrapRect.top) / graphScaleY;
         const oldZoom = node._AngeloZoom || 1;
         const factor = event.deltaY < 0 ? 1.15 : (1 / 1.15);
-        const newZoom = Math.max(0.25, Math.min(8, oldZoom * factor));
+        const newZoom = Math.max(1, Math.min(8, oldZoom * factor));
         if (newZoom === oldZoom) return;
         // Wheeling back through ~1× snaps to a clean fit (zoom=1, no pan).
         // Without this, float drift leaves zoom at e.g. 1.0000002, which
@@ -3458,9 +3469,64 @@ async function _angeloCopyImageToClipboard(node) {
     }
 }
 
+// ===== Right-click quick actions (#29) ==============================
+// The generate→edit loop without hunting for the toolbar: mode switch +
+// the two base actions live on BOTH right-click menus (node body via
+// getExtraMenuOptions, preview canvas via _angeloShowImageContextMenu —
+// the canvas one is what a user zoomed into the preview actually reaches).
+// "New base" vs "same base" is the distinction #29 asked for explicitly.
+
+function _angeloSetMode(node, mode) {
+    // Same setWidget path as the Mode dropdown, so the wrapped mode
+    // callback fires (seed lock/restore + toolbar grey sync) — then
+    // mirror the DOM dropdown, which only the dropdown's own click
+    // handler would otherwise update.
+    const w = findWidget(node, "mode");
+    if (!w || String(w.value) === mode) return;
+    setWidget(w, mode);
+    syncModeSelect(node);
+}
+
+function _angeloGenerateNewBase(node) {
+    // One gesture for "start the cycle again": Sampler Mode + a fresh
+    // random seed + queue. The seed roll is unconditional — the user
+    // asked for a NEW base — but the control widget is left alone, so
+    // a deliberate `fixed` stays fixed (at the new seed) afterwards.
+    _angeloSetMode(node, "Sampler Mode");
+    const seedW = findWidget(node, "sampler_seed");
+    if (seedW) {
+        setWidget(seedW, Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+        syncSamplerSeedInput(node);
+    }
+    queuePrompt(node);
+}
+
+function _angeloRegenerateSameBase(node) {
+    // Re-run the exact base generation: Sampler Mode + the seed Python
+    // actually used for the cached base (seed_at_run — the widget value
+    // may have drifted via after-gen control). Control is untouched:
+    // randomize users get their roll back after this run as usual.
+    _angeloSetMode(node, "Sampler Mode");
+    const seedW = findWidget(node, "sampler_seed");
+    const stored = node._AngeloSamplerSeedAtRun;
+    if (seedW && stored != null && Number(seedW.value) !== Number(stored)) {
+        setWidget(seedW, Number(stored));
+        syncSamplerSeedInput(node);
+    }
+    queuePrompt(node);
+}
+
 function _angeloShowImageContextMenu(node, event) {
     const hasImg = !!node._AngeloImg;
+    const inSampler = String(findWidget(node, "mode")?.value) === "Sampler Mode";
     const items = [
+        { content: inSampler ? "Switch to Edit Mode" : "Switch to Sampler Mode",
+          callback: () => _angeloSetMode(node, inSampler ? "Edit Mode" : "Sampler Mode") },
+        { content: "Generate new base (fresh seed)",
+          callback: () => _angeloGenerateNewBase(node) },
+        { content: "Regenerate same base",
+          callback: () => _angeloRegenerateSameBase(node) },
+        null,
         { content: "Open image in new tab", disabled: !hasImg,
           callback: () => _angeloOpenImageInTab(node) },
         { content: "Copy image", disabled: !hasImg,
@@ -5308,12 +5374,31 @@ function syncModeSwitchToFixed(node, prevMode) {
     // Mode, force sampler_seed_control to "fixed" AND restore sampler_seed
     // to the seed Python actually used for the cached base (which after
     // after-gen control may have drifted from the current widget value).
+    //
+    // The pre-Edit control value is snapshotted first so switching BACK to
+    // Sampler Mode can undo the force (#29): the control is restored, and
+    // one after-gen step is applied immediately — without that, the seed
+    // widget still holds the base's seed (lock-on-fixed put it there) and
+    // the next Queue silently reproduces the identical base, because
+    // after-gen control only fires AFTER a run completes.
     const modeW = findWidget(node, "mode");
     if (!modeW) return;
-    const nowInRefine = String(modeW.value) === "Edit Mode";
-    if (nowInRefine && prevMode === "Sampler Mode") {
+    const nowMode = String(modeW.value);
+    if (nowMode === "Edit Mode" && prevMode === "Sampler Mode") {
+        const ctrlW = findWidget(node, "sampler_seed_control");
+        node._AngeloPreEditSamplerCtrl = ctrlW ? String(ctrlW.value) : null;
         lockSeedToAtRun(node, "sampler_seed", "sampler_seed_control");
         dbg("syncMode: forced sampler_seed_control → fixed + restored sampler_seed");
+    } else if (nowMode === "Sampler Mode" && prevMode === "Edit Mode") {
+        const stored = node._AngeloPreEditSamplerCtrl;
+        if (stored && stored !== "fixed") {
+            const ctrlW = findWidget(node, "sampler_seed_control");
+            if (ctrlW) setWidget(ctrlW, stored);
+            applyAfterGenControl(node, "sampler_seed", "sampler_seed_control");
+            syncSamplerSeedCtrlSelect(node);
+            dbg("syncMode: restored sampler_seed_control →", stored, "+ advanced seed");
+        }
+        node._AngeloPreEditSamplerCtrl = null;
     }
 }
 

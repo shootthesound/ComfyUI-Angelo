@@ -68,7 +68,7 @@ Angelo collapses all of it into one node:
 - **Hold `\`** over the preview for an instant before/after flash of the original base (Lightroom's compare key).
 - **⛶ Fullscreen** — pop the whole editor out to a full-screen canvas for precise detail work; every tool keeps working, Esc returns it.
 - **Undo / Redo** to step back and forward through your refines.
-- **Load Image** to edit an existing photo directly in the node — no Empty Latent + `VAEEncode` chain to wire (you still connect the `vae` input as normal; Angelo does the encode itself). Or just **drag-drop an image file** onto the node; **right-click** the preview to copy it or open it in a new tab.
+- **Load Image** to edit an existing photo directly in the node — no Empty Latent + `VAEEncode` chain to wire (you still connect the `vae` input as normal; Angelo does the encode itself). Or just **drag-drop an image file** onto the node; **right-click** the preview to copy it, open it in a new tab, switch mode, or generate a new / same base.
 - **`source_image` output** emits the original pre-edit base, ready to wire straight into a compare node.
 
 **Two models, one canvas**
@@ -145,6 +145,14 @@ Angelo acts as a normal sampler — generates the base image from the incoming l
 - **Smpl Seed** + **Smpl Ctrl** — seed value + after-generate control (`fixed` / `randomize` / `increment` / `decrement`).
 
 When you flip Mode to Edit Mode, `Smpl Ctrl` auto-locks to `fixed` and `Smpl Seed` snaps to the seed that actually produced the cached image (preserves it across the mode switch). The Sampler-seed row greys out in Edit Mode.
+
+Flipping **back** to Sampler Mode undoes the lock: `Smpl Ctrl` returns to whatever you had before (e.g. `randomize`), and the seed is advanced one step immediately — so the very next Queue produces a **new** base instead of silently repeating the last one. If you had `fixed` before entering Edit Mode, it stays `fixed`.
+
+**Right-click the preview (or the node body) for quick actions** that cover the whole generate→edit loop without touching the toolbar:
+
+- **Switch to Edit / Sampler Mode** — the Mode dropdown, one right-click away.
+- **Generate new base (fresh seed)** — jumps to Sampler Mode, rolls a fresh random seed, and queues. The "give me another one" button.
+- **Regenerate same base** — jumps to Sampler Mode and re-queues with the exact seed that produced the current base. The "run that one again" button.
 
 ![Mode dropdown](screenshots/mode-dropdown.png)
 
@@ -551,7 +559,7 @@ The preview fits the node by default, but you can zoom in to work on fine detail
 
 | Action | Does |
 |---|---|
-| **Mouse wheel** | Zoom in / out, centered on the cursor (0.25×–8×) |
+| **Mouse wheel** | Zoom in / out, centered on the cursor (fit–8×; zooming out stops at fit) |
 | **Middle-mouse hold + drag** | Pan around |
 | **Double middle-click**, or **F** (cursor over node) | Reset back to fit |
 
