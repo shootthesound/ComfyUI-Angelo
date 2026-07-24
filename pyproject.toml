@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-angelo"
-version = "2.7.0"
+version = "2.8.0"
 description = "Click-to-edit sampler for ComfyUI. Generate an image, then work it like a photo editor — click or paint to refine, drag or describe to inpaint, click an edge to outpaint, paint over something to remove it and rebuild the background, and one-click restore or upscale a whole photo. First-class support for FLUX 2 Klein 9B and Qwen-Image-Edit, plus any sampler-compatible model. Includes two-model workflows (generate with FLUX Krea / SDXL, edit with Klein or Qwen via the Overrides gen bundle), a Remove brush, Fullscreen editing mode, Quick Photo Refine, 2× Pixel + Shrink resizing, Outpaint, Reference anchoring, Xtra-Fine, Smart Inpaint, Fix All, Vary ×4, optional SAM 3 Detect, and a companion Overrides node for custom samplers."
 license = { text = "MIT" }
 readme = "README.md"
