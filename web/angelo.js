@@ -543,6 +543,16 @@ app.registerExtension({
             // silhouette. It's cleared instead by the manual-mask triggers
             // (a click / paint / rect resets it) — see triggerRefine etc.
 
+            // Auto-switched base generation: Python ran Sampler Mode because
+            // the workflow was queued in Edit Mode with no session and a
+            // blank wired latent (fresh open / ComfyUI restart). Flip the
+            // Mode widget so the UI matches what actually ran — before the
+            // after-gen block below, which then applies to the sampler seed
+            // group as it should for a base generation.
+            if (message?.Angelo_auto_sampler?.[0]) {
+                _angeloSetMode(this, "Sampler Mode");
+            }
+
             // Seed_at_run capture — used by the lock-on-fixed code. ComfyUI's
             // ui message values arrive as 1-element lists (their convention).
             const lastMode = message?.Angelo_mode?.[0];

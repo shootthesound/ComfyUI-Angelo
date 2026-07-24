@@ -148,6 +148,8 @@ When you flip Mode to Edit Mode, `Smpl Ctrl` auto-locks to `fixed` and `Smpl See
 
 Flipping **back** to Sampler Mode undoes the lock: `Smpl Ctrl` returns to whatever you had before (e.g. `randomize`), and the seed is advanced one step immediately — so the very next Queue produces a **new** base instead of silently repeating the last one. If you had `fixed` before entering Edit Mode, it stays `fixed`.
 
+**Queueing before a base exists just works.** Open a workflow that was saved in Edit Mode (or restart ComfyUI, which clears the session) and press Queue — either button — and Angelo notices there's nothing to edit yet: it runs the **base generation** instead and flips Mode back to Sampler Mode for you. A wired *non-empty* latent is respected as-is — that's the "refine an upstream sampler's output" pattern.
+
 **Right-click the preview (or the node body) for quick actions** that cover the whole generate→edit loop without touching the toolbar:
 
 - **Switch to Edit / Sampler Mode** — the Mode dropdown, one right-click away.

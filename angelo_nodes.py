@@ -251,6 +251,17 @@ _GUIDED_LOCATION_PREFIXES = {
 }
 
 
+def _latent_is_blank(latent: torch.Tensor) -> bool:
+    """True when the latent is a constant fill — i.e. an EMPTY latent that
+    was never sampled. Empty-latent nodes fill with a constant (0.0 for
+    EmptyLatentImage and most others; the latent shift, e.g. 0.0609, for
+    EmptySD3LatentImage), while a real image latent is never perfectly
+    uniform. Used to tell "base was never generated" from "a real latent
+    was wired in" on a fresh Edit-Mode queue."""
+    v = latent.flatten()[0]
+    return bool((latent == v).all())
+
+
 def _latent_fingerprint(latent: torch.Tensor) -> str:
     """Quick non-cryptographic fingerprint of an incoming latent.
 
@@ -2263,6 +2274,29 @@ class AngeloRefine:
             # fixed at 1.0 inside it; the JS dims their controls).
             persistent_mask = False
 
+        # ===== Auto base generation on a fresh Edit-Mode queue =====
+        # Queueing in Edit Mode with NO session, NO loaded image, and a
+        # BLANK wired latent (a workflow opened saved-in-Edit-Mode, or a
+        # ComfyUI restart) means the base was never generated — "editing"
+        # would just decode an empty grey canvas. Run the Sampler-Mode base
+        # generation instead (both queue buttons arrive here identically)
+        # and flag the JS to flip the Mode widget so the UI matches what
+        # actually ran. A wired NON-blank latent is left alone — that's the
+        # downstream-refiner pattern (edit an upstream sampler's output
+        # directly). A mid-session browser refresh is also left alone: the
+        # server-side state survives it, so state is not None.
+        auto_sampler = False
+        if (mode == "Edit Mode"
+                and state is None
+                and not loaded_active
+                and base_from_wired_latent
+                and _latent_is_blank(incoming)):
+            print("[Angelo] Edit Mode queued with no session and an empty "
+                  "wired latent — running the base generation instead "
+                  "(Mode flips to Sampler Mode).")
+            mode = "Sampler Mode"
+            auto_sampler = True
+
         # ===== Sampler Mode branch =====
         # Acts like a KSampler: take the incoming latent (typically empty),
         # run a fresh denoise pass with sampler_seed + sampler_denoise, cache
@@ -2451,6 +2485,10 @@ class AngeloRefine:
                 "Angelo_mode": ["Sampler Mode"],
                 "Angelo_sampler_seed_at_run": [int(sampler_seed)],
             }
+            if auto_sampler:
+                # Tell the JS this run auto-generated the base so it can
+                # flip the Mode widget to Sampler Mode (see onExecuted).
+                ui_msg["Angelo_auto_sampler"] = [True]
             # Preview always decodes now (auto_decode deprecated). Gen-bundle
             # path already holds the gen VAE's pixels — preview those rather
             # than the edit-VAE round-trip of them.
