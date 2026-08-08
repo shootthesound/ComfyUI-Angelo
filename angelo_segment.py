@@ -139,17 +139,22 @@ def _ensure_model():
         except Exception as e:  # pragma: no cover - environment dependent
             if "pkg_resources" in str(e):
                 # SAM 3 IS installed, but setuptools 82+ removed the legacy
-                # pkg_resources module it imports (issue #34). Re-running the
-                # installer applies Angelo's patch that removes the need for
-                # it — don't tell these users SAM 3 "isn't installed".
+                # pkg_resources module it imports (issue #34) — don't tell
+                # these users SAM 3 "isn't installed". Angelo patches this
+                # automatically at startup (__init__.py self-heal), so
+                # update + restart is normally enough; the installer is the
+                # reliable fallback if the self-heal couldn't reach their
+                # copy (permissions, load order).
                 _STATE["import_error"] = (
                     "Your SAM 3 install needs a one-time fix: setuptools 82+ "
-                    "removed the pkg_resources module SAM 3 relied on. CLOSE "
-                    "ComfyUI, re-run the installer in the ComfyUI-Angelo "
-                    "folder — install_sam3_support.bat (Windows) or "
-                    "install_sam3_support.sh (macOS/Linux) — and start "
-                    "ComfyUI again. It patches SAM 3 in place; no downgrade "
-                    f"needed. ({e})"
+                    "removed the pkg_resources module SAM 3 relied on. "
+                    "Update ComfyUI-Angelo and RESTART ComfyUI — Angelo "
+                    "patches SAM 3 automatically at startup. If this notice "
+                    "comes back after a restart, close ComfyUI and re-run "
+                    "the installer in the ComfyUI-Angelo folder — "
+                    "install_sam3_support.bat (Windows) or "
+                    "install_sam3_support.sh (macOS/Linux). No setuptools "
+                    f"downgrade needed. ({e})"
                 )
             else:
                 _STATE["import_error"] = (

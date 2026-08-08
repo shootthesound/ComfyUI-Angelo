@@ -28,6 +28,22 @@ try:
 except Exception as _e:  # pragma: no cover
     print(f"[Angelo] could not record python path: {_e}")
 
+# Self-heal an existing SAM 3 install at startup (best-effort). The opt-in
+# installer applies these same source patches, but running them here too
+# means a plain node update + ComfyUI restart is enough to fix a broken
+# SAM 3 — no .bat/.sh re-run needed (issue #34: setuptools 82+ removed
+# pkg_resources and killed SAM 3's import). Cheap once patched (marker
+# check short-circuits), a no-op when SAM 3 isn't installed, and it runs
+# before anything can import sam3 (Angelo only imports it lazily at first
+# Detect).
+try:
+    import importlib.util as _ilu
+    if _ilu.find_spec("sam3") is not None:
+        from . import sam3_postinstall as _pi
+        _pi.main()
+except Exception as _e:  # pragma: no cover
+    print(f"[Angelo] SAM 3 self-heal skipped: {_e}")
+
 # Registers the /angelo/detect SAM 3 route. Import is best-effort — if
 # the server or sam3 deps aren't present, the node still loads (the
 # detect feature just won't be available).

@@ -543,7 +543,7 @@ Detect needs Meta's **SAM 3**, which isn't on PyPI — so it's **opt-in** and no
 
 The script installs SAM 3 + its dependencies into the *same* Python ComfyUI uses (it reads the interpreter path Angelo records on startup, so it works for portable, venv, or conda installs). The **SAM 3 weights (`sam3.pt`, ~GB) download automatically on first Detect** from a public mirror — no Hugging Face token needed. If `sam3` isn't installed, the Detect button just tells you to run the script; everything else in Angelo keeps working.
 
-**If Detect worked before but now says `No module named 'pkg_resources'`** (happens after setuptools updates to 82+, common on fresh Python 3.12/3.13 setups): just re-run the installer — it's safe on an existing install and patches SAM 3 so it no longer needs `pkg_resources`. No setuptools downgrade required. The installer applies Angelo's other SAM 3 compatibility fixes the same way, so re-running it is always the first thing to try when Detect breaks after an environment update.
+**If Detect worked before but now says `No module named 'pkg_resources'`** (happens after setuptools updates to 82+, common on fresh Python 3.12/3.13 setups): **just update Angelo and restart ComfyUI** — on startup Angelo patches SAM 3 in place so it no longer needs `pkg_resources`. No setuptools downgrade required. If the error somehow persists after a restart, close ComfyUI and re-run the installer — it applies the same fixes and is always safe on an existing install, so it's the reliable fallback whenever Detect breaks after an environment update. (Don't *uninstall/reinstall* Angelo to fix SAM 3 issues — SAM 3 itself lives inside the Angelo folder, so removing the node removes SAM 3 with it.)
 
 ## Area Prompt (refine with a different prompt)
 
