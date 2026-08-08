@@ -137,13 +137,28 @@ def _ensure_model():
             from sam3.model_builder import build_sam3_image_model
             from sam3.model.sam3_image_processor import Sam3Processor
         except Exception as e:  # pragma: no cover - environment dependent
-            _STATE["import_error"] = (
-                "SAM 3 Detect isn't installed (it's optional). CLOSE ComfyUI, "
-                "then run the installer in the ComfyUI-Angelo folder — "
-                "install_sam3_support.bat (Windows) or install_sam3_support.sh "
-                "(macOS/Linux) — and start ComfyUI again. "
-                f"(sam3 package not importable: {e})"
-            )
+            if "pkg_resources" in str(e):
+                # SAM 3 IS installed, but setuptools 82+ removed the legacy
+                # pkg_resources module it imports (issue #34). Re-running the
+                # installer applies Angelo's patch that removes the need for
+                # it — don't tell these users SAM 3 "isn't installed".
+                _STATE["import_error"] = (
+                    "Your SAM 3 install needs a one-time fix: setuptools 82+ "
+                    "removed the pkg_resources module SAM 3 relied on. CLOSE "
+                    "ComfyUI, re-run the installer in the ComfyUI-Angelo "
+                    "folder — install_sam3_support.bat (Windows) or "
+                    "install_sam3_support.sh (macOS/Linux) — and start "
+                    "ComfyUI again. It patches SAM 3 in place; no downgrade "
+                    f"needed. ({e})"
+                )
+            else:
+                _STATE["import_error"] = (
+                    "SAM 3 Detect isn't installed (it's optional). CLOSE ComfyUI, "
+                    "then run the installer in the ComfyUI-Angelo folder — "
+                    "install_sam3_support.bat (Windows) or install_sam3_support.sh "
+                    "(macOS/Linux) — and start ComfyUI again. "
+                    f"(sam3 package not importable: {e})"
+                )
             raise RuntimeError(_STATE["import_error"])
 
         load_device, _ = _torch_devices()
