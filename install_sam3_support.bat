@@ -47,7 +47,7 @@ type nul > "%CONSTRAINTS%"
 "%PY%" -c "import sam3" 1>nul 2>nul
 if not errorlevel 1 (
   echo SAM 3 is already installed in this environment.
-  echo Applying Angelo's SAM 3.1 dtype fix if needed...
+  echo Applying Angelo's SAM 3 compatibility fixes if needed...
   "%PY%" "sam3_postinstall.py"
   echo Restart ComfyUI and use the Detect button in Angelo.
   goto :done
@@ -93,7 +93,7 @@ if errorlevel 1 (
   goto :fail
 )
 
-echo Applying Angelo's SAM 3.1 dtype fix...
+echo Applying Angelo's SAM 3 compatibility fixes...
 "%PY%" "sam3_postinstall.py"
 
 echo.

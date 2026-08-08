@@ -48,7 +48,7 @@ fi
 
 if "$PY" -c "import sam3" >/dev/null 2>&1; then
   echo "SAM 3 is already installed in this environment."
-  echo "Applying Angelo's SAM 3.1 dtype fix if needed..."
+  echo "Applying Angelo's SAM 3 compatibility fixes if needed..."
   "$PY" sam3_postinstall.py
   echo "Restart ComfyUI and use the Detect button in Angelo."
   exit 0
@@ -78,7 +78,7 @@ fi
 echo "Installing SAM 3 (editable, no deps)..."
 "$PY" -m pip install -e sam3 --no-deps
 
-echo "Applying Angelo's SAM 3.1 dtype fix..."
+echo "Applying Angelo's SAM 3 compatibility fixes..."
 "$PY" sam3_postinstall.py
 
 echo ""
